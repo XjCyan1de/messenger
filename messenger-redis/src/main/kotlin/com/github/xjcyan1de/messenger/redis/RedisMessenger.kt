@@ -1,6 +1,5 @@
 package com.github.xjcyan1de.messenger.redis
 
-import com.github.xjcyan1de.cyanlibz.redis.Redis
 import com.github.xjcyan1de.messenger.AbstractMessenger
 import com.github.xjcyan1de.messenger.Channel
 import kotlinx.coroutines.*
@@ -12,9 +11,16 @@ import java.nio.charset.StandardCharsets
 import java.util.concurrent.ConcurrentHashMap
 import java.util.logging.Logger
 
-class RedisClient(
-        val credentials: RedisCredentials
+fun RedisMessenger(builder: RedisMessenger.Builder.() -> Unit) = RedisMessenger.builder().apply(builder).build()
+
+class RedisMessenger
+private constructor(
+        private var hostname: String,
+        private var port: Int,
+        private var password: ByteArray
 ) : Redis, CoroutineScope by GlobalScope {
+    constructor(builder: Builder) : this(builder.hostname, builder.port, builder.password.toByteArray())
+
     private val log = Logger.getLogger("Redis")
     override lateinit var jedisPool: JedisPool
     override val jedis: Jedis
@@ -27,13 +33,11 @@ class RedisClient(
         }
 
         override fun notifySubscribe(channel: String) {
-            log.info("Subscribing to channel: $channel")
             channels.add(channel)
             listener!!.subscribe(channel.toByteArray())
         }
 
         override fun notifyUnsubscribe(channel: String) {
-            log.info("Unsubscribing from channel: $channel")
             channels.remove(channel)
             listener!!.unsubscribe(channel.toByteArray())
         }
@@ -46,10 +50,10 @@ class RedisClient(
     fun connect() = apply {
         jedisPool = JedisPoolConfig().let { config ->
             config.maxTotal = 16
-            if (credentials.password.isEmpty()) {
-                JedisPool(config, credentials.address, credentials.port)
+            if (password.isEmpty()) {
+                JedisPool(config, hostname, port)
             } else {
-                JedisPool(config, credentials.address, credentials.port, 2000, credentials.password)
+                JedisPool(config, hostname, port, 2000, password.toString(Charsets.UTF_8))
             }
         }
         jedis.use {
@@ -115,6 +119,11 @@ class RedisClient(
 
     override fun <T> getChannel(name: String, type: Class<T>): Channel<T> = messenger.getChannel(name, type)
 
+    companion object {
+        @JvmStatic
+        fun builder(): Builder = Builder()
+    }
+
     inner class PubSubListener : BinaryJedisPubSub() {
         private val subscribed: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
@@ -148,4 +157,25 @@ class RedisClient(
             }
         }
     }
+
+    class Builder {
+        var hostname: String = "localhost"
+        var port: Int = 6379
+        var password: String = "password"
+
+        fun hostname(hostname: String) = apply {
+            this.hostname = hostname
+        }
+
+        fun port(port: Int) = apply {
+            this.port = port
+        }
+
+        fun password(password: String) = apply {
+            this.password = password
+        }
+
+        fun build(): RedisMessenger = RedisMessenger(this)
+    }
 }
+

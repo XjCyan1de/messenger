@@ -1,4 +1,4 @@
-package com.github.xjcyan1de.cyanlibz.redis
+package com.github.xjcyan1de.messenger.redis
 
 import com.github.xjcyan1de.messenger.Messenger
 import redis.clients.jedis.Jedis

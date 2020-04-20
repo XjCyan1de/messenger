@@ -1,8 +1,16 @@
 plugins {
-    kotlin("jvm") version "1.3.71" apply true
-    `maven-publish`
+    `java-library`
+    java
 }
 
 repositories {
     jcenter()
+}
+
+dependencies {
+    api(project(":messenger-core"))
+}
+
+allprojects {
+    buildDir = File("$rootDir/build")
 }
